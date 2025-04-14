@@ -1,237 +1,431 @@
 <!DOCTYPE html>
- <html lang="ru">
- <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>TV Online</title>
-  <style>
-   body {
-    margin: 0;
-    padding: 0;
-    font-family: Arial, sans-serif;
-    background-color: black;
-    color: white;
-    display: flex;
-   }
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TV Online</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: Arial, sans-serif;
+            background-color: black;
+            color: white;
+            display: flex;
+        }
 
-   #main-video-container {
-    flex: 3;
-    height: 100vh;
-    overflow: hidden;
-   }
+        #main-video-container {
+            flex: 3;
+            height: 100vh;
+            overflow: hidden;
+            position: relative;
+        }
 
-   #main-video {
-    width: 100%;
-    height: 100%;
-   }
+        #main-video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
 
-   #right-panel {
-    flex: 1;
-    background-color: #f9f9f9;
-    overflow-y: auto;
-   }
+        #right-panel {
+            flex: 1;
+            background-color: #222;
+            overflow-y: auto;
+            color: white;
+            display: flex;
+            flex-direction: column;
+        }
 
-   #country-selector, #category-selector {
-    padding: 10px;
-    border-bottom: 1px solid #ccc;
-   }
+        #country-selector, #category-selector {
+            padding: 10px;
+            border-bottom: 1px solid #444;
+        }
 
-   #country-selector button, #category-selector button {
-    margin: 0 5px;
-    padding: 5px 10px;
-    border: 1px solid #000;
-    background-color: #fff;
-    cursor: pointer;
-   }
+        .selector-title {
+            margin-bottom: 10px;
+            font-weight: bold;
+        }
 
-   #channel-list {
-    padding: 10px;
-    list-style-type: none;
-    margin: 0;
-    padding-left: 0;
-   }
+        .selector-buttons {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
 
-   #channel-list li {
-    padding: 5px 0;
-    cursor: pointer;
-   }
+        #country-selector button, #category-selector button {
+            padding: 5px 10px;
+            border: none;
+            background-color: #333;
+            color: white;
+            cursor: pointer;
+            border-radius: 3px;
+            font-size: 12px;
+        }
 
-   #channel-list li:hover {
-    background-color: #ddd;
-   }
+        #country-selector button:hover, #category-selector button:hover {
+            background-color: #444;
+        }
 
-   #channel-controls {
-    display: flex;
-    justify-content: center;
-    padding: 10px;
-   }
+        #country-selector button.active, #category-selector button.active {
+            background-color: #0078d7;
+        }
 
-   #channel-controls button {
-    padding: 10px 20px;
-    cursor: pointer;
-    font-size: 16px;
-    margin: 0 10px;
-   }
-  </style>
- </head>
- <body>
+        #channel-list {
+            padding: 10px;
+            list-style-type: none;
+            margin: 0;
+            padding-left: 0;
+            flex-grow: 1;
+            overflow-y: auto;
+        }
 
- <div id="main-video-container">
-  <video id="main-video" controls autoplay muted></video>
- </div>
+        #channel-list li {
+            padding: 10px;
+            cursor: pointer;
+            border-bottom: 1px solid #333;
+            display: flex;
+            align-items: center;
+        }
 
- <div id="right-panel">
-  <div id="country-selector">
-   </div>
+        #channel-list li:hover {
+            background-color: #333;
+        }
 
-  <div id="category-selector">
-   </div>
+        #channel-list li.active {
+            background-color: #0078d7;
+        }
 
-  <ul id="channel-list"></ul>
+        .channel-logo {
+            width: 30px;
+            height: 30px;
+            margin-right: 10px;
+            object-fit: contain;
+        }
 
-  <div id="channel-controls">
-   <button id="prev-channel">CH-</button>
-   <button id="next-channel">CH+</button>
-  </div>
- </div>
+        .channel-name {
+            flex-grow: 1;
+        }
 
- <script>
-  const mainVideo = document.getElementById('main-video');
-  const prevButton = document.getElementById('prev-channel');
-  const nextButton = document.getElementById('next-channel');
-  const countrySelector = document.getElementById('country-selector');
-  const categorySelector = document.getElementById('category-selector');
-  const channelList = document.getElementById('channel-list');
+        #channel-controls {
+            padding: 10px;
+            border-top: 1px solid #444;
+            display: flex;
+            justify-content: space-between;
+        }
 
-  let channels = [];
-  let currentChannelIndex = 0;
-  let countries = new Set();
-  let categories = new Set();
+        #channel-controls button {
+            padding: 10px 20px;
+            cursor: pointer;
+            font-size: 16px;
+            background-color: #0078d7;
+            color: white;
+            border: none;
+            border-radius: 3px;
+        }
 
-  // Функция для извлечения страны из названия (простая логика)
-  function extractCountry(name) {
-   const countryKeywords = ['Россия', 'Китай', 'США', 'AE', 'AF', 'AL', /* ... добавьте другие коды стран */];
-   for (const keyword of countryKeywords) {
-    if (name.includes(keyword)) {
-     return keyword;
+        #channel-controls button:hover {
+            background-color: #0066c0;
+        }
+    </style>
+</head>
+<body>
+
+<div id="main-video-container">
+    <video id="main-video" controls autoplay></video>
+</div>
+
+<div id="right-panel">
+    <!-- Выбор страны -->
+    <div id="country-selector">
+        <div class="selector-title">Страны</div>
+        <div class="selector-buttons">
+            <button data-country="Все">Все</button>
+            <button data-country="Россия">Россия</button>
+            <button data-country="Украина">Украина</button>
+            <button data-country="Беларусь">Беларусь</button>
+            <button data-country="Казахстан">Казахстан</button>
+            <button data-country="США">США</button>
+            <button data-country="Великобритания">Великобритания</button>
+            <button data-country="Германия">Германия</button>
+            <button data-country="Франция">Франция</button>
+            <button data-country="Италия">Италия</button>
+            <button data-country="Испания">Испания</button>
+            <button data-country="Турция">Турция</button>
+            <button data-country="Китай">Китай</button>
+            <button data-country="Япония">Япония</button>
+            <button data-country="Корея">Корея</button>
+            <button data-country="Индия">Индия</button>
+            <button data-country="Арабские">Арабские</button>
+            <button data-country="Латинская Америка">Латинская Америка</button>
+        </div>
+    </div>
+
+    <!-- Выбор категории -->
+    <div id="category-selector">
+        <div class="selector-title">Категории</div>
+        <div class="selector-buttons">
+            <button data-category="Все">Все</button>
+            <button data-category="Новости">Новости</button>
+            <button data-category="Спорт">Спорт</button>
+            <button data-category="Кино">Кино</button>
+            <button data-category="Музыка">Музыка</button>
+            <button data-category="Детские">Детские</button>
+            <button data-category="Познавательные">Познавательные</button>
+            <button data-category="Развлекательные">Развлекательные</button>
+            <button data-category="Региональные">Региональные</button>
+            <button data-category="Религия">Религия</button>
+            <button data-category="Эротика">Эротика</button>
+        </div>
+    </div>
+
+    <!-- Список каналов -->
+    <ul id="channel-list"></ul>
+
+    <!-- Управление каналами -->
+    <div id="channel-controls">
+        <button id="prev-channel">◄ Назад</button>
+        <button id="next-channel">Вперед ►</button>
+    </div>
+</div>
+
+<script>
+    const mainVideo = document.getElementById('main-video');
+    const prevButton = document.getElementById('prev-channel');
+    const nextButton = document.getElementById('next-channel');
+    const countrySelector = document.getElementById('country-selector');
+    const categorySelector = document.getElementById('category-selector');
+    const channelList = document.getElementById('channel-list');
+
+    let channels = [];
+    let filteredChannels = [];
+    let currentChannelIndex = 0;
+
+    // Загрузка плейлиста
+    fetch('combined.m3u')
+        .then(response => response.text())
+        .then(data => {
+            const lines = data.split('\n');
+            let currentChannel = null;
+
+            for (const line of lines) {
+                if (line.startsWith('#EXTINF')) {
+                    const match = line.match(/#EXTINF:-1(.*?),(.*)/);
+                    if (match) {
+                        const params = match[1];
+                        const name = match[2].trim();
+                        
+                        const logoMatch = params.match(/tvg-logo="(.*?)"/);
+                        const groupMatch = params.match(/group-title="(.*?)"/);
+                        
+                        currentChannel = {
+                            name: name,
+                            logoUrl: logoMatch ? logoMatch[1] : '',
+                            group: groupMatch ? groupMatch[1] : '',
+                            country: extractCountry(name, groupMatch ? groupMatch[1] : ''),
+                            category: extractCategory(name, groupMatch ? groupMatch[1] : '')
+                        };
+                    }
+                } else if (line.startsWith('http') && currentChannel) {
+                    currentChannel.url = line.trim();
+                    channels.push(currentChannel);
+                    currentChannel = null;
+                }
+            }
+
+            console.log('Каналы загружены:', channels);
+            
+            // Активируем кнопку "Все" по умолчанию
+            document.querySelector('#country-selector button[data-country="Все"]').classList.add('active');
+            document.querySelector('#category-selector button[data-category="Все"]').classList.add('active');
+            
+            // Инициализация списка каналов
+            loadChannelList();
+        })
+        .catch(error => console.error('Ошибка при загрузке плейлиста:', error));
+
+    // Функции для определения страны и категории
+    function extractCountry(name, group) {
+        const countryKeywords = [
+            'Россия', 'Русский', 'RUS', 'RU ', 'Russia',
+            'Украина', 'Украин', 'UKR', 'UA ',
+            'Беларусь', 'Белорус', 'BY ',
+            'Казахстан', 'KZ ',
+            'США', 'USA', 'Американ',
+            'Великобритания', 'UK ', 'Английск',
+            'Германия', 'DE ', 'Немецк',
+            'Франция', 'FR ', 'Французск',
+            'Италия', 'IT ', 'Итальянск',
+            'Испания', 'ES ', 'Испанск',
+            'Турция', 'TR ', 'Турецк',
+            'Китай', 'CN ', 'Китайск',
+            'Япония', 'JP ', 'Японск',
+            'Корея', 'KR ', 'Корейск',
+            'Индия', 'IN ', 'Индийск',
+            'Арабск', 'Arab', 'Arabic',
+            'Латинск', 'Latin'
+        ];
+        
+        for (const keyword of countryKeywords) {
+            if (name.includes(keyword) || group.includes(keyword)) {
+                if (keyword === 'Русский' || keyword === 'RUS' || keyword === 'RU ' || keyword === 'Russia') return 'Россия';
+                if (keyword === 'Украин' || keyword === 'UKR' || keyword === 'UA ') return 'Украина';
+                if (keyword === 'Белорус' || keyword === 'BY ') return 'Беларусь';
+                if (keyword === 'KZ ') return 'Казахстан';
+                if (keyword === 'USA' || keyword === 'Американ') return 'США';
+                if (keyword === 'UK ' || keyword === 'Английск') return 'Великобритания';
+                if (keyword === 'DE ' || keyword === 'Немецк') return 'Германия';
+                if (keyword === 'FR ' || keyword === 'Французск') return 'Франция';
+                if (keyword === 'IT ' || keyword === 'Итальянск') return 'Италия';
+                if (keyword === 'ES ' || keyword === 'Испанск') return 'Испания';
+                if (keyword === 'TR ' || keyword === 'Турецк') return 'Турция';
+                if (keyword === 'CN ' || keyword === 'Китайск') return 'Китай';
+                if (keyword === 'JP ' || keyword === 'Японск') return 'Япония';
+                if (keyword === 'KR ' || keyword === 'Корейск') return 'Корея';
+                if (keyword === 'IN ' || keyword === 'Индийск') return 'Индия';
+                if (keyword === 'Arab' || keyword === 'Arabic') return 'Арабские';
+                if (keyword === 'Latin') return 'Латинская Америка';
+                return keyword;
+            }
+        }
+        
+        return 'Другие';
     }
-   }
-   return 'Все'; // По умолчанию
-  }
 
-  // Функция для извлечения категории (простая логика)
-  function extractCategory(name) {
-   const categoryKeywords = ['Новости', 'Спорт', 'Фильмы', 'Музыка'];
-   for (const keyword of categoryKeywords) {
-    if (name.includes(keyword)) {
-     return keyword;
-    }
-   }
-   return 'Все'; // По умолчанию
-  }
-
-
-  // Загрузка плейлиста
-  fetch('combined.m3u')
-   .then(response => response.text())
-   .then(data => {
-    const lines = data.split('\n');
-    let currentGroup = null;
-
-    for (const line of lines) {
-     if (line.startsWith('#EXTINF')) {
-      const [, logoUrl, name] = line.match(/#EXTINF:-1 tvg-logo="(.*?)".*?,(.*)/) || [];
-      currentGroup = { name, logoUrl };
-     } else if (line.startsWith('http')) {
-      const country = extractCountry(currentGroup.name);
-      const category = extractCategory(currentGroup.name);
-      channels.push({ ...currentGroup, url: line, country, category });
-      countries.add(country);
-      categories.add(category);
-     }
+    function extractCategory(name, group) {
+        const categoryKeywords = [
+            'Новости', 'News', 'Информац', '24/7',
+            'Спорт', 'Sport', 'Футбол', 'Хоккей', 'Теннис',
+            'Кино', 'Фильм', 'Movie', 'Cinema', 'Сериал',
+            'Музыка', 'Music', 'MTV', 'Музыкальн',
+            'Детск', 'Kids', 'Мульт', 'Cartoon',
+            'Познавательн', 'Научн', 'Документальн', 'History', 'Discovery',
+            'Развлекательн', 'Entertainment', 'Шоу', 'Юмор',
+            'Региональн', 'Областн', 'Городск',
+            'Религи', 'Церков', 'Правосл', 'Христиан', 'Мусульман',
+            'Эротик', 'Для взрослых', '18+', 'Adult'
+        ];
+        
+        for (const keyword of categoryKeywords) {
+            if (name.includes(keyword) || group.includes(keyword)) {
+                if (keyword === 'News' || keyword === 'Информац' || keyword === '24/7') return 'Новости';
+                if (keyword === 'Sport' || keyword === 'Футбол' || keyword === 'Хоккей' || keyword === 'Теннис') return 'Спорт';
+                if (keyword === 'Фильм' || keyword === 'Movie' || keyword === 'Cinema' || keyword === 'Сериал') return 'Кино';
+                if (keyword === 'Music' || keyword === 'MTV' || keyword === 'Музыкальн') return 'Музыка';
+                if (keyword === 'Kids' || keyword === 'Мульт' || keyword === 'Cartoon') return 'Детские';
+                if (keyword === 'Научн' || keyword === 'Документальн' || keyword === 'History' || keyword === 'Discovery') return 'Познавательные';
+                if (keyword === 'Entertainment' || keyword === 'Шоу' || keyword === 'Юмор') return 'Развлекательные';
+                if (keyword === 'Областн' || keyword === 'Городск') return 'Региональные';
+                if (keyword === 'Церков' || keyword === 'Правосл' || keyword === 'Христиан' || keyword === 'Мусульман') return 'Религия';
+                if (keyword === 'Для взрослых' || keyword === '18+' || keyword === 'Adult') return 'Эротика';
+                return keyword;
+            }
+        }
+        
+        return 'Другие';
     }
 
-    console.log('Каналы загружены:', channels);
-    loadSelectors();
-    loadChannelList();
-   })
-   .catch(error => console.error('Ошибка при загрузке плейлиста:', error));
+    function loadChannelList() {
+        channelList.innerHTML = '';
 
-  function loadSelectors() {
-   // Загрузка стран
-   countrySelector.innerHTML = '';
-   countries.forEach(country => {
-    const button = document.createElement('button');
-    button.textContent = country;
-    button.dataset.country = country;
-    countrySelector.appendChild(button);
-   });
+        const selectedCountry = countrySelector.querySelector('.active')?.dataset.country || 'Все';
+        const selectedCategory = categorySelector.querySelector('.active')?.dataset.category || 'Все';
 
-   // Загрузка категорий
-   categorySelector.innerHTML = '';
-   categories.forEach(category => {
-    const button = document.createElement('button');
-    button.textContent = category;
-    button.dataset.category = category;
-    categorySelector.appendChild(button);
-   });
+        filteredChannels = channels.filter(channel => {
+            const countryMatch = selectedCountry === 'Все' || 
+                               channel.country === selectedCountry || 
+                               channel.name.includes(selectedCountry) || 
+                               channel.group.includes(selectedCountry);
+            
+            const categoryMatch = selectedCategory === 'Все' || 
+                                channel.category === selectedCategory || 
+                                channel.name.includes(selectedCategory) || 
+                                channel.group.includes(selectedCategory);
+            
+            return countryMatch && categoryMatch;
+        });
 
-   // Обработчики выбора страны
-   countrySelector.addEventListener('click', event => {
-    if (event.target.tagName === 'BUTTON') {
-     Array.from(countrySelector.children).forEach(button => button.classList.remove('active'));
-     event.target.classList.add('active');
-     loadChannelList();
+        filteredChannels.forEach((channel, index) => {
+            const listItem = document.createElement('li');
+            listItem.dataset.index = index;
+            
+            if (channel.logoUrl) {
+                const logoImg = document.createElement('img');
+                logoImg.src = channel.logoUrl;
+                logoImg.classList.add('channel-logo');
+                logoImg.onerror = () => { logoImg.style.display = 'none'; };
+                listItem.appendChild(logoImg);
+            }
+            
+            const nameSpan = document.createElement('span');
+            nameSpan.textContent = channel.name;
+            nameSpan.classList.add('channel-name');
+            listItem.appendChild(nameSpan);
+            
+            listItem.addEventListener('click', () => {
+                selectChannel(index);
+            });
+            
+            channelList.appendChild(listItem);
+        });
+
+        // Выбрать первый канал по умолчанию
+        if (filteredChannels.length > 0) {
+            selectChannel(0);
+        } else {
+            mainVideo.src = '';
+            const listItem = document.createElement('li');
+            listItem.textContent = 'Нет каналов, соответствующих выбранным критериям';
+            channelList.appendChild(listItem);
+        }
     }
-   });
 
-   // Обработчики выбора категории
-   categorySelector.addEventListener('click', event => {
-    if (event.target.tagName === 'BUTTON') {
-     Array.from(categorySelector.children).forEach(button => button.classList.remove('active'));
-     event.target.classList.add('active');
-     loadChannelList();
+    function selectChannel(index) {
+        if (filteredChannels.length === 0) return;
+        
+        currentChannelIndex = (index + filteredChannels.length) % filteredChannels.length;
+        const selectedChannel = filteredChannels[currentChannelIndex];
+        
+        // Обновляем активный элемент в списке
+        Array.from(channelList.children).forEach((item, i) => {
+            item.classList.toggle('active', i === currentChannelIndex);
+        });
+        
+        mainVideo.src = selectedChannel.url;
+        mainVideo.load();
+        mainVideo.play().catch(e => console.log('Autoplay prevented:', e));
     }
-   });
-  }
 
-  function loadChannelList() {
-   channelList.innerHTML = '';
+    // Обработчики выбора страны
+    countrySelector.addEventListener('click', event => {
+        if (event.target.tagName === 'BUTTON') {
+            countrySelector.querySelectorAll('button').forEach(button => button.classList.remove('active'));
+            event.target.classList.add('active');
+            loadChannelList();
+        }
+    });
 
-   const selectedCountry = Array.from(countrySelector.children).find(button => button.classList.contains('active'))?.dataset.country || 'Все';
-   const selectedCategory = Array.from(categorySelector.children).find(button => button.classList.contains('active'))?.dataset.category || 'Все';
+    // Обработчики выбора категории
+    categorySelector.addEventListener('click', event => {
+        if (event.target.tagName === 'BUTTON') {
+            categorySelector.querySelectorAll('button').forEach(button => button.classList.remove('active'));
+            event.target.classList.add('active');
+            loadChannelList();
+        }
+    });
 
-   const filteredChannels = channels.filter(channel =>
-    (selectedCountry === 'Все' || channel.country === selectedCountry) &&
-    (selectedCategory === 'Все' || channel.category === selectedCategory)
-   );
+    // Кнопки переключения каналов
+    prevButton.addEventListener('click', () => selectChannel(currentChannelIndex - 1));
+    nextButton.addEventListener('click', () => selectChannel(currentChannelIndex + 1));
 
-   filteredChannels.forEach((channel, index) => {
-    const listItem = document.createElement('li');
-    listItem.textContent = channel.name;
-    listItem.dataset.index = index;
-    listItem.addEventListener('click', () => selectChannel(index));
-    channelList.appendChild(listItem);
-   });
+    // Горячие клавиши
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'ArrowLeft') {
+            selectChannel(currentChannelIndex - 1);
+        } else if (e.key === 'ArrowRight') {
+            selectChannel(currentChannelIndex + 1);
+        }
+    });
+</script>
 
-   // Выбрать первый канал по умолчанию
-   if (filteredChannels.length > 0) {
-    selectChannel(0);
-   }
-  }
-
-  function selectChannel(index) {
-   currentChannelIndex = index % channels.length;
-   const selectedChannel = channels[currentChannelIndex];
-   mainVideo.src = selectedChannel.url;
-   mainVideo.load();
-   mainVideo.play();
-  }
-
-  // Кнопки переключения каналов
-  prevButton.addEventListener('click', () => selectChannel(currentChannelIndex - 1));
-  nextButton.addEventListener('click', () => selectChannel(currentChannelIndex + 1));
- </script>
-
- </body>
- </html>
+</body>
+</html>
