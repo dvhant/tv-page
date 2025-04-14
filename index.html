@@ -141,6 +141,20 @@
         #channel-controls button:hover {
             background-color: #0066c0;
         }
+
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255,255,255,.3);
+            border-radius: 50%;
+            border-top-color: #fff;
+            animation: spin 1s ease-in-out infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
     </style>
 </head>
 <body>
@@ -153,7 +167,7 @@
     <!-- Выбор плейлиста -->
     <div id="playlist-selector">
         <select id="playlist-select">
-            <option value="">Загрузка плейлистов...</option>
+            <option value="">Поиск плейлистов...</option>
         </select>
     </div>
 
@@ -224,56 +238,55 @@
     let currentChannelIndex = 0;
     let availablePlaylists = [];
 
+    // Список возможных имен плейлистов для поиска
+    const PLAYLIST_NAMES = [
+        'playlist.m3u', 'playlist.m3u8', 
+        'all.m3u', 'all.m3u8',
+        'tv.m3u', 'tv.m3u8', 
+        'channels.m3u', 'channels.m3u8',
+        'iptv.m3u', 'iptv.m3u8', 
+        'combined.m3u', 'combined.m3u8',
+        'list.m3u', 'list.m3u8',
+        'streams.m3u', 'streams.m3u8',
+        'live.m3u', 'live.m3u8'
+    ];
+
     // Загрузка списка доступных плейлистов
-    function loadPlaylists() {
-        fetch('get_playlists.php') // Этот endpoint нужно реализовать на сервере
-            .then(response => response.json())
-            .then(playlists => {
-                availablePlaylists = playlists;
-                updatePlaylistSelector();
-                
+    async function loadPlaylists() {
+        playlistSelect.innerHTML = '<option value="">Поиск плейлистов <span class="loading"></span></option>';
+        
+        // Проверяем каждый возможный плейлист
+        const checks = PLAYLIST_NAMES.map(name => checkPlaylistExists(name));
+        
+        try {
+            const results = await Promise.all(checks);
+            availablePlaylists = results.filter(Boolean);
+            
+            updatePlaylistSelector();
+            
+            if (availablePlaylists.length > 0) {
                 // Загружаем первый плейлист по умолчанию
-                if (playlists.length > 0) {
-                    loadPlaylist(playlists[0]);
-                }
-            })
-            .catch(() => {
-                // Если endpoint не работает, попробуем найти плейлисты вручную
-                discoverPlaylists();
-            });
+                loadPlaylist(availablePlaylists[0]);
+            } else {
+                playlistSelect.innerHTML = '<option value="">Плейлисты не найдены</option>';
+            }
+        } catch (error) {
+            console.error('Ошибка при поиске плейлистов:', error);
+            playlistSelect.innerHTML = '<option value="">Ошибка поиска плейлистов</option>';
+        }
     }
 
-    // Альтернативный метод поиска плейлистов
-    function discoverPlaylists() {
-        const knownPlaylists = [
-            'playlist.m3u', 'playlist.m3u8', 'all.m3u', 'all.m3u8',
-            'tv.m3u', 'tv.m3u8', 'channels.m3u', 'channels.m3u8',
-            'iptv.m3u', 'iptv.m3u8', 'combined.m3u', 'combined.m3u8'
-        ];
-        
-        // Проверяем наличие каждого известного имени плейлиста
-        const checks = knownPlaylists.map(playlist => {
-            return fetch(playlist)
-                .then(response => {
-                    if (response.ok) {
-                        return playlist;
-                    }
-                    return Promise.reject();
-                })
-                .catch(() => null);
-        });
-        
-        Promise.all(checks)
-            .then(results => {
-                availablePlaylists = results.filter(Boolean);
-                updatePlaylistSelector();
-                
-                if (availablePlaylists.length > 0) {
-                    loadPlaylist(availablePlaylists[0]);
-                } else {
-                    playlistSelect.innerHTML = '<option value="">Плейлисты не найдены</option>';
-                }
-            });
+    // Проверяет существование плейлиста
+    async function checkPlaylistExists(name) {
+        try {
+            const response = await fetch(name, { method: 'HEAD' });
+            if (response.ok) {
+                return name;
+            }
+            return null;
+        } catch {
+            return null;
+        }
     }
 
     function updatePlaylistSelector() {
@@ -293,52 +306,56 @@
     }
 
     // Загрузка выбранного плейлиста
-    function loadPlaylist(playlistName) {
-        fetch(playlistName)
-            .then(response => response.text())
-            .then(data => {
-                const lines = data.split('\n');
-                let currentChannel = null;
-                channels = [];
+    async function loadPlaylist(playlistName) {
+        channelList.innerHTML = '<li>Загрузка каналов...</li>';
+        mainVideo.src = '';
+        
+        try {
+            const response = await fetch(playlistName);
+            if (!response.ok) throw new Error('Ошибка загрузки');
+            
+            const data = await response.text();
+            const lines = data.split('\n');
+            let currentChannel = null;
+            channels = [];
 
-                for (const line of lines) {
-                    if (line.startsWith('#EXTINF')) {
-                        const match = line.match(/#EXTINF:-1(.*?),(.*)/);
-                        if (match) {
-                            const params = match[1];
-                            const name = match[2].trim();
-                            
-                            const logoMatch = params.match(/tvg-logo="(.*?)"/);
-                            const groupMatch = params.match(/group-title="(.*?)"/);
-                            
-                            currentChannel = {
-                                name: name,
-                                logoUrl: logoMatch ? logoMatch[1] : '',
-                                group: groupMatch ? groupMatch[1] : '',
-                                country: extractCountry(name, groupMatch ? groupMatch[1] : ''),
-                                category: extractCategory(name, groupMatch ? groupMatch[1] : '')
-                            };
-                        }
-                    } else if (line.startsWith('http') && currentChannel) {
-                        currentChannel.url = line.trim();
-                        channels.push(currentChannel);
-                        currentChannel = null;
+            for (const line of lines) {
+                if (line.startsWith('#EXTINF')) {
+                    const match = line.match(/#EXTINF:-1(.*?),(.*)/);
+                    if (match) {
+                        const params = match[1];
+                        const name = match[2].trim();
+                        
+                        const logoMatch = params.match(/tvg-logo="(.*?)"/);
+                        const groupMatch = params.match(/group-title="(.*?)"/);
+                        
+                        currentChannel = {
+                            name: name,
+                            logoUrl: logoMatch ? logoMatch[1] : '',
+                            group: groupMatch ? groupMatch[1] : '',
+                            country: extractCountry(name, groupMatch ? groupMatch[1] : ''),
+                            category: extractCategory(name, groupMatch ? groupMatch[1] : '')
+                        };
                     }
+                } else if (line.startsWith('http') && currentChannel) {
+                    currentChannel.url = line.trim();
+                    channels.push(currentChannel);
+                    currentChannel = null;
                 }
+            }
 
-                console.log(`Плейлист "${playlistName}" загружен, каналов: ${channels.length}`);
-                
-                // Активируем кнопку "Все" по умолчанию
-                document.querySelector('#country-selector button[data-country="Все"]').classList.add('active');
-                document.querySelector('#category-selector button[data-category="Все"]').classList.add('active');
-                
-                // Инициализация списка каналов
-                loadChannelList();
-            })
-            .catch(error => {
-                console.error(`Ошибка при загрузке плейлиста "${playlistName}":`, error);
-                channelList.innerHTML = '<li>Ошибка загрузки плейлиста</li>';
-            });
+            console.log(`Плейлист "${playlistName}" загружен, каналов: ${channels.length}`);
+            
+            // Активируем кнопку "Все" по умолчанию
+            document.querySelector('#country-selector button[data-country="Все"]').classList.add('active');
+            document.querySelector('#category-selector button[data-category="Все"]').classList.add('active');
+            
+            // Инициализация списка каналов
+            loadChannelList();
+        } catch (error) {
+            console.error(`Ошибка при загрузке плейлиста "${playlistName}":`, error);
+            channelList.innerHTML = '<li>Ошибка загрузки плейлиста</li>';
+        }
     }
 
     // Функции для определения страны и категории
